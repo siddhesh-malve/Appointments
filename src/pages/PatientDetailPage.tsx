@@ -1,12 +1,11 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, Mail, Phone, User, CalendarDays,
-  Edit, UserX, Activity,
+  ArrowLeft, Mail, Phone, Edit, UserX, Activity,
 } from 'lucide-react'
 import { format, parseISO, differenceInYears } from 'date-fns'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
 import { OverviewTab } from '@/components/patients/OverviewTab'
 import { VitalsTab } from '@/components/patients/vitals/VitalsTab'
 import { ConfirmInactivateModal } from '@/components/patients/ConfirmInactivateModal'
@@ -15,8 +14,19 @@ import { mockVitals } from '@/mocks/vitals'
 import type { Patient } from '@/types/patient'
 import type { VitalReading } from '@/types/vital'
 
+type Tab = 'overview' | 'vitals'
+
 const GENDER_LABELS: Record<string, string> = {
   male: 'Male', female: 'Female', other: 'Other',
+}
+
+function InfoChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[11px] text-gray-400 font-medium uppercase tracking-wide">{label}</span>
+      <span className="text-sm font-medium text-gray-800">{value}</span>
+    </div>
+  )
 }
 
 export default function PatientDetailPage() {
@@ -30,6 +40,7 @@ export default function PatientDetailPage() {
     mockVitals.filter((v) => v.patientId === id)
   )
   const [inactivateOpen, setInactivateOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<Tab>('overview')
 
   if (!patient) {
     return (
@@ -44,9 +55,9 @@ export default function PatientDetailPage() {
   }
 
   const age = differenceInYears(new Date(), parseISO(patient.dob))
-  const initials = patient.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2)
+  const initials = patient.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
 
-  function handleInactivate(patientId: string) {
+  function handleInactivate() {
     setPatient((p) => p ? { ...p, status: 'inactive' } : p)
   }
 
@@ -54,56 +65,95 @@ export default function PatientDetailPage() {
     setReadings((prev) => [reading, ...prev])
   }
 
+  const tabs: { key: Tab; label: string; icon?: React.ReactNode }[] = [
+    { key: 'overview', label: 'Overview' },
+    {
+      key: 'vitals',
+      label: 'Readings & Vitals',
+      icon: <Activity className="h-3.5 w-3.5" />,
+    },
+  ]
+
   return (
     <div className="px-6 py-6">
-      {/* Back nav */}
+      {/* ── Back nav ─────────────────────────────────────────────────── */}
       <button
         onClick={() => navigate('/patients')}
-        className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-5 group"
+        className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-5 group transition-colors"
       >
         <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
         Back to Patient Management
       </button>
 
-      {/* Patient Summary Card */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          {/* Left: Identity */}
-          <div className="flex items-start gap-4">
-            <div className="h-14 w-14 flex-shrink-0 rounded-full bg-primary-light flex items-center justify-center">
-              <span className="text-base font-bold text-primary">{initials}</span>
-            </div>
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-xl font-bold text-gray-900">{patient.fullName}</h1>
-                <span className={[
-                  'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-                  patient.status === 'active'
-                    ? 'bg-green-50 text-green-700'
-                    : 'bg-gray-100 text-gray-500'
-                ].join(' ')}>
-                  {patient.status === 'active' ? 'Active' : 'Inactive'}
-                </span>
-              </div>
-              <div className="flex items-center gap-3 mt-1 flex-wrap">
-                <span className="text-xs font-mono text-gray-500 bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5">
-                  MRN: {patient.mrn}
-                </span>
-                <span className="text-xs text-gray-500">
-                  {GENDER_LABELS[patient.gender]}
-                </span>
-                <span className="text-xs text-gray-500">
-                  DOB: {format(parseISO(patient.dob), 'MM/dd/yyyy')}
-                </span>
-                <span className="text-xs text-gray-500">Age: {age} yrs</span>
-              </div>
-            </div>
-          </div>
+      {/* ── Patient Header Card ───────────────────────────────────────── */}
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm mb-6 overflow-hidden">
+        {/* Green accent stripe */}
+        <div className="h-1.5 w-full bg-gradient-to-r from-primary to-primary-hover" />
 
-          {/* Right: Contact + actions */}
-          <div className="flex flex-col items-end gap-3">
-            {/* Actions */}
-            <div className="flex items-center gap-2">
+        <div className="px-6 py-5">
+          <div className="flex items-start justify-between gap-6 flex-wrap">
+
+            {/* Left: Avatar + Identity */}
+            <div className="flex items-start gap-4">
+              {/* Avatar with online-status dot */}
+              <div className="relative flex-shrink-0">
+                <div className="h-16 w-16 rounded-full bg-primary-light border-2 border-primary-border flex items-center justify-center">
+                  <span className="text-lg font-bold text-primary">{initials}</span>
+                </div>
+                <span className={cn(
+                  'absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white',
+                  patient.status === 'active' ? 'bg-green-500' : 'bg-gray-400'
+                )} />
+              </div>
+
+              {/* Name + chips */}
+              <div>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h1 className="text-xl font-bold text-gray-900 leading-tight">{patient.fullName}</h1>
+                  <span className={cn(
+                    'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                    patient.status === 'active'
+                      ? 'bg-green-50 text-green-700 ring-1 ring-green-200'
+                      : 'bg-gray-100 text-gray-500 ring-1 ring-gray-200'
+                  )}>
+                    {patient.status === 'active' ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+
+                {/* MRN pill */}
+                <div className="mt-1 mb-3">
+                  <span className="text-xs font-mono text-gray-500 bg-gray-50 border border-gray-200 rounded-md px-2 py-0.5">
+                    MRN: {patient.mrn}
+                  </span>
+                </div>
+
+                {/* Info chips */}
+                <div className="flex items-start gap-6 flex-wrap">
+                  <InfoChip label="Date of Birth" value={format(parseISO(patient.dob), 'MM/dd/yyyy')} />
+                  <InfoChip label="Age" value={`${age} years`} />
+                  <InfoChip label="Gender" value={GENDER_LABELS[patient.gender] ?? patient.gender} />
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[11px] text-gray-400 font-medium uppercase tracking-wide">Contact</span>
+                    <span className="text-sm font-medium text-gray-800 flex items-center gap-1.5">
+                      <Phone className="h-3 w-3 text-gray-400" />
+                      {patient.phone}
+                    </span>
+                  </div>
+                  {patient.email && (
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[11px] text-gray-400 font-medium uppercase tracking-wide">Email</span>
+                      <span className="text-sm font-medium text-gray-800 flex items-center gap-1.5">
+                        <Mail className="h-3 w-3 text-gray-400" />
+                        {patient.email}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Actions */}
+            <div className="flex items-center gap-2 flex-shrink-0">
               <Button variant="outline" size="sm">
                 <Edit className="h-3.5 w-3.5" />
                 Edit Patient
@@ -116,58 +166,46 @@ export default function PatientDetailPage() {
                   className="text-orange-600 border-orange-200 hover:bg-orange-50 hover:border-orange-300"
                 >
                   <UserX className="h-3.5 w-3.5" />
-                  Mark Inactive
+                  Inactive Patient
                 </Button>
-              )}
-            </div>
-            {/* Contact info */}
-            <div className="flex items-center gap-4 text-xs text-gray-500">
-              <span className="flex items-center gap-1.5">
-                <Phone className="h-3.5 w-3.5 text-gray-400" />
-                {patient.phone}
-              </span>
-              {patient.email && (
-                <span className="flex items-center gap-1.5">
-                  <Mail className="h-3.5 w-3.5 text-gray-400" />
-                  {patient.email}
-                </span>
-              )}
-              <span className="flex items-center gap-1.5">
-                <User className="h-3.5 w-3.5 text-gray-400" />
-                Added by {patient.addedByName}
-              </span>
-              {patient.lastAppointmentDate && (
-                <span className="flex items-center gap-1.5">
-                  <CalendarDays className="h-3.5 w-3.5 text-gray-400" />
-                  Last visit: {format(parseISO(patient.lastAppointmentDate), 'MMM d, yyyy')}
-                </span>
               )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Content Tabs */}
-      <Tabs defaultValue="overview">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="vitals">
-            <Activity className="h-3.5 w-3.5" />
-            Readings & Vitals
-            {readings.length > 0 && (
-              <span className="ml-1 text-gray-400">({readings.length})</span>
-            )}
-          </TabsTrigger>
-        </TabsList>
+      {/* ── Underline Tabs ────────────────────────────────────────────── */}
+      <div className="border-b border-gray-200 mb-6">
+        <div className="flex">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={cn(
+                'relative flex items-center gap-1.5 px-4 pb-3 pt-1 text-sm font-medium transition-colors',
+                activeTab === tab.key
+                  ? 'text-primary'
+                  : 'text-gray-500 hover:text-gray-700'
+              )}
+            >
+              {tab.icon}
+              {tab.label}
+              <span className={cn(
+                'absolute bottom-0 left-0 right-0 h-0.5 rounded-full transition-all duration-200',
+                activeTab === tab.key ? 'bg-primary' : 'bg-transparent'
+              )} />
+            </button>
+          ))}
+        </div>
+      </div>
 
-        <TabsContent value="overview">
-          <OverviewTab patient={patient} readings={readings} />
-        </TabsContent>
-
-        <TabsContent value="vitals">
-          <VitalsTab patient={patient} readings={readings} onAddReading={handleAddReading} />
-        </TabsContent>
-      </Tabs>
+      {/* ── Tab Content ──────────────────────────────────────────────── */}
+      {activeTab === 'overview' && (
+        <OverviewTab patient={patient} />
+      )}
+      {activeTab === 'vitals' && (
+        <VitalsTab patient={patient} readings={readings} onAddReading={handleAddReading} />
+      )}
 
       <ConfirmInactivateModal
         open={inactivateOpen}

@@ -35,7 +35,7 @@ export function PatientsPage() {
   const [search, setSearch]                 = useState('')
   const [statusFilter, setStatusFilter]     = useState<StatusFilter>('all')
   const [addedByFilter, setAddedByFilter]   = useState('')
-  const [sortField, setSortField]           = useState<SortField>('fullName')
+  const [sortField, setSortField]           = useState<SortField | null>(null)
   const [sortDir, setSortDir]               = useState<SortDir>('asc')
   const [page, setPage]                     = useState(1)
   const [addOpen, setAddOpen]               = useState(false)
@@ -54,6 +54,7 @@ export function PatientsPage() {
 
   // Sort
   const sorted = useMemo(() => {
+    if (!sortField) return filtered
     return [...filtered].sort((a, b) => {
       let cmp = 0
       if (sortField === 'fullName') cmp = a.fullName.localeCompare(b.fullName)
@@ -69,7 +70,7 @@ export function PatientsPage() {
 
   function handleSort(field: SortField) {
     if (sortField === field) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-    else { setSortField(field); setSortDir('asc') }
+    else { setSortField(field as SortField); setSortDir('asc') }
     setPage(1)
   }
 
