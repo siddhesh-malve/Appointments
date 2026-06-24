@@ -10,7 +10,7 @@ const PatientDetailPage = lazy(() => import('@/pages/PatientDetailPage'))
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/Appointments">
       <Routes>
         <Route element={<AppShell />}>
           <Route path="/" element={<Navigate to="/appointments" replace />} />
